@@ -22,11 +22,12 @@ description: 陳述式與表達式
 :::
 
 * 流程控制（if...else）
-* 宣告（var, let, const）、return
+* 宣告（var, let, const）(ex.var a = 1)、return
 * 迴圈（for）
 * 其他（import, export）
 
 ### 表達式 Expression
+
 
 :::note
 
@@ -34,13 +35,13 @@ description: 陳述式與表達式
 
 :::
 
-* 純值
-* 運算值
+* 純值 (ex.a,b)
+* 運算子（ex.a = 1）
 * 執行函式
 * 函式表達式
 * 正規表達式
 
-#### 函式陳述式
+### 函式陳述式
 
 :::note
 
@@ -48,7 +49,6 @@ description: 陳述式與表達式
 
 :::
 
-* 定義一個函式並呼叫它
 
 ```js
 function numA(x){
@@ -56,7 +56,7 @@ function numA(x){
 }
 ```
 
-#### 函式表達式
+### 函式表達式
 
 :::note
 
@@ -67,12 +67,30 @@ function numA(x){
 * 先宣告一個變數，並且用 ' = ' 運算子將函式賦值到宣告的變數上
 
 ```js
-const numB = function {
+const numB = function(x) {
   return x * x
 }
+
+numB(2) //4
 ```
 ```js
-let numB = function {
+let numB = function(x) {
   return x * x
+}
+
+numB(2) //4
+```
+
+* 立即函式
+```js
+(function (){
+  //...
+})()
+```
+
+* 箭頭函式
+```js
+const num = () => {
+
 }
 ```
