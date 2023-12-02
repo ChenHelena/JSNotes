@@ -146,7 +146,10 @@ add_two.(3)
 add_two.===
 ```
 
-#### lambda 的兩種方式
+### lambda 的兩種方式
+  * lambda是一個可以創建**匿名**函數的對象
+  * 變數作用域 : Lambda 具有閉包（closure）性質，可以捕獲和保留其創建時的變數環境
+  * 參數處理 : Lambda 可以接受參數，並像一個函數一樣執行
 ```js
 add_two = lambda {
   |n| n + 2
