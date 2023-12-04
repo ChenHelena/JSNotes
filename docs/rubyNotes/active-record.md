@@ -1,5 +1,5 @@
 ---
-description: 資料表關聯、ORM、CRUD
+description: ActiveRecord、資料表關聯、ORM、CRUD
 ---
 
 # ActiveRecord
@@ -195,4 +195,86 @@ class ArticlesController < ApplicationController
   end
 end
 ```
+
+## Action Mailer
+在 Rails 中，Mailer 是處理郵件發送的部分。可以使用 Mailer 來生成和發送電子郵件，那要怎麼查詢 rails 的內建功能呢？ 在終端機輸入 `rails g` 這樣就可以知道 rails 內建有什麼功能囉，接著在終端機輸入 `rails g mailer Vote` 會新增兩個檔案：`mailers/vote_mailer.rb` & `views/vote_mailer`
+
+在 `mailers/vote_mailer.rb` 的檔案裡，建立 vote_notify 的方法
+```js
+class VoteMailer < ApplicationMailer
+  def vote_notify(email)
+    mail to: email, subject: 'test email'
+  end
+end
+```
+
+當你想發送郵件時，可以在 controller 或其他地方呼叫這個 vote_notify 方法
+```js
+class CandidatesController < ApplicationController
+  def vote
+    # send mail
+
+    VoteMailer.vote_notify('cocolulu2327@gmail.com').deliver
+
+  end
+end
+```
+可以在 views/vote_mailer 目錄下創建與方法名對應的 view 文件
+```jsx title="vote_notify.html.erb"
+<h1>test email</h1>
+```
+因為寄發信件需要配置 Action Mailer 的 `delivery_method` 和相應的 `smtp_settings`，以指定郵件的發送方式和 SMTP 伺服器的設置
+
+在 rails guides 的 ActionMailer Basic 可以找到相關文件需要的資料，並且確保在 config/environments/development.rb 文件中配置郵件寄發服務：
+```js
+config.action_mailer.delivery_method = :smtp
+config.action_mailer.smtp_settings = {
+  address:         'smtp.gmail.com',
+  port:            587,
+  domain:          'example.com',
+  user_name:       '<username>',
+  password:        '<password>',
+  authentication:  'plain',
+  enable_starttls: true,
+  open_timeout:    5,
+  read_timeout:    5 
+  }
+```
+
+delivery_method 設置為 :smtp，表示希望使用 SMTP 來發送郵件，這是因為 Action Mailer 可以使用不同的方式來發送郵件，例如 SMTP、Sendmail、Test（僅用於測試）等，而 smtp_settings 則包含了 SMTP 伺服器的詳細設置，包括伺服器地址、埠口、用戶名、密碼等
+
+但由於安全性考慮，不可能將密碼放到程式碼中，所以需要寄發信件的套件，例如：mailgun，可以產生 username password port 及 hostname
+
+## ActiveJob
+有些程式在執行的時間較長，等了一陣子後他才會運作到下一個工作，這樣不僅會影響到使用者體驗，更會在效能上出現很大的問題，所以像這種會影響使用者體驗的工作，會把要執行的工作先存起來，然後跑下一步，等到空檔或是指定時間再去執行存下來的工作，可以使用 rails 的內建功能 ActiveJob 來處理這個問題
+
+根據以上寄發信件的例子來看：
+
+執行 `rails g job VoteMail` 命令，生成一個新的 job
+
+會在 app / jobs 目錄下創建一個新的文件 `vote_mail_job.rb`
+
+```js
+class VoteMailJob < ApplicationJob
+  queue_as :default //表示工作著急程度：low_priority、default、urgent
+
+  def perform(*args)
+    VoteMailer.vote_notify('cocolulu2327@gmail.com').deliver
+    //把剛剛跑很慢的寄發信件貼過來
+  end
+end
+```
+
+然後在 controller 的地方調度 Job
+```js
+class CandidatesController < ApplicationController
+  def vote
+    # send mail
+
+    VoteMailJob.perform_later
+
+  end
+end
+```
+
 
