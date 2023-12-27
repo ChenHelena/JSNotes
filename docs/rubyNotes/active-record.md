@@ -70,7 +70,7 @@ description: ActiveRecord、資料表關聯、ORM、CRUD
     ```
 
 ## rails 支援的關聯
-* has_one
+### has_one
   * 不是設定是一個**類別方法**
   * 表示 model 一對一的關係
 
@@ -89,18 +89,55 @@ end
 
 執行 `has_one :profile`，會動態產生好幾個方法：`profile`, `profile=`, `build_profile`, `create_profile`
 
-* belongs_to
+### belongs_to
   * 是一個**類別方法**
   * 表示 model 一對一或多對一的關係
 
 執行 `belongs_to :user`，會動態產生好幾個方法：`user`, `user=`
 
 
-* has_many
+### has_many
   * 是一個**類別方法**
   * 表示 model 一對多的關係
+  * has_many 關聯會自動為關聯的模型生成**複數形式**的方法
+  ```js
+    // app/models/comment.rb
+    class Comment < ApplicationRecord
+      belongs_to :post
+    end
+  ```
+  @comments 是一個由 has_many 生成的集合，其中包含與該文章相關聯的所有評論
 
-* has_one :through
+  ```js
+    // app/controllers/posts_controller.rb
+    class PostsController < ApplicationController
+      def show
+        @comments = @post.comments //所以這裡才會是複數形式
+      end
+    end
+  ```
+  
+  ## 局部渲染：
+
+  在 Posts 的 Show 視圖中渲染 Comment Partial :
+  ```js
+  <!-- app/views/posts/show.html.erb -->
+
+  <%= render partial: 'comment', collection: @comments %>
+  ```
+
+  Comment Partial（_comment.html.erb）：
+  ```js
+  <!-- app/views/comments/_comment.html.erb -->
+  <div class="comment">
+    <p><%= comment.body %></p>
+  </div>
+  ```
+  :::danger note
+  使用 render partial: 'comment', collection: @comments 時，Rails 會遍歷 @comments 中的每個評論對象，並將它們傳遞給 _comment.html.erb，以生成相應的 HTML 片段
+  :::
+
+### has_one :through
   * 表示 model 建立間接一對一關係
 
 在這個例子中，User 通過 Profile 這個中介 model，建立了和 Address 的一對一關係。這樣一來，你可以透過 user.address 直接訪問 Address model，而不需要直接在 User model 中定義 belongs_to 關係
@@ -123,7 +160,7 @@ class Address < ApplicationRecord
 end
 
 ```
-* has_many :through
+### has_many :through
   * 表示 model 多對多的關係
   * 需要第三個資料表來儲存兩邊資訊
 

@@ -65,6 +65,7 @@ Post Load (0.2ms)  SELECT "posts".* FROM "posts"
   ↳ app/views/posts/index.html.erb:22
   CACHE User Load (0.0ms)  SELECT "users".* FROM "users" WHERE "users"."id" = ? LIMIT ?  [["id", 2], ["LIMIT", 1]]
 ```
+includes 是 Rails **ActiveRecord** 中的一個方法，用於在檢索數據時預先載入關聯記錄，以避免 N+1 查詢問題
 
 解決辦法：在 post_controller.rb 裡，
 ```js

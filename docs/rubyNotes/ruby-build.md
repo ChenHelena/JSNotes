@@ -8,16 +8,18 @@ description: 純手刻 ruby
 建立一個資料夾，並且運行他
 ```js
 rails _6.1.4.6_ new rubyproject --webpack
-rails s
+rails s //執行前記得要把當前位置更改成新增的資料夾
 ```
-
 
 接著到 `config/routes.rb` 新增來源（ 可以自訂 ）
 ```js
 resources :candidates
 ```
+這時，可以把連結設定為 `localhost:3000/candidates` 
 
-到 controllers/ 新增 `candidates_controller.rb` 檔案，建立 CandidatesController 的類別並且繼承最上層
+它會報錯顯示 `uninitialized constant CandidatesController`
+
+再到 controllers/ 新增 `candidates_controller.rb` 檔案，建立 CandidatesController 的類別並且繼承最上層
 ```js
 class CandidatesController < ApplicationController
   
@@ -27,7 +29,7 @@ class CandidatesController < ApplicationController
 end
 ```
 
-那接下來剩下畫面的問題，在 views 資料夾在建立一個資料夾 candidates，裡面放的是 erb 檔案，可以寫 ruby 語言的 html：index.html.erb( 也就是建立方法的名稱 )
+那接下來剩下畫面的問題，在 **views** 資料夾在建立一個資料夾 candidates，裡面放的是 erb 檔案，可以寫 ruby 語言的 html：index.html.erb( 也就是建立方法的名稱 )
 ```js
 <h1>這是畫面顯示</h1>
 ```
@@ -45,7 +47,7 @@ model 檔案
 class Candidate < ApplicationRecord
 end
 ```
-migrate：描述資料表 -> 記得要在終端機打上 `rails db:migrate`
+migrate：描述資料表 -> 記得要在終端機打上 `rails db:migrate`，會在 `db/migrate` 資料夾底下產生以下檔案：
 ```js
 class CreateCandidates < ActiveRecord::Migration[6.1]
   def change
@@ -66,10 +68,25 @@ end
 
 
 ## form 裡的 token
-在建立表單的地方，需要有一組 token，每次點擊每次都不同，這是為了防止有心人士灌水，所以 ruby 有內建的表單輸出自動產生 token : form_for
+在建立表單的地方，需要有一組 token，每次點擊每次都不同，這是為了防止有心人士灌水，所以 ruby 有內建的表單輸出自動產生 token : form_for -> 為某個 model 建立表單
+```js
+<%= form_for(Candidate.new) do |form| %>
+<% end %>
+```
+
+原本自己建立的表單要這樣寫，運用 form_for 真的方便很多
+```js
+<form action="/candidates" method="POST">
+  <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+  <input type="text" name="name">
+  <input type="submit" value="submit">
+</form>
+```
+
+Candidate.new 建立物件應交給 controller 來處理，view 就負責畫面的事情就好（這時候需要在 controller 新增一個 new 方法存取在實體變數 ＠candidate）
 ```js
 <%= form_for(@candidate) do |form| %> 
-//Candidate.new建立物件應交給 controller 來處理，view 就負責畫面的事情就好（已經在 controller 新增一個 new 方法存取在實體變數 ＠candidate）
+
 <%= form.label :name %>
 <%= form.text_field :name %>
 
@@ -81,11 +98,12 @@ end
 
 <%= form.label :politics %>
 <%= form.text_area :politics %>
+
 <%= form.submit %>
 <% end %>
 ```
 
-新增一個 new 方法存取在實體變數 ＠candidate
+controller 新增一個 new 方法存取在實體變數 ＠candidate
 ```js
 class CandidatesController < ApplicationController
   
@@ -99,7 +117,7 @@ class CandidatesController < ApplicationController
 end
 ```
 
-## 如何取得表單資料
+## 如何取得表單資料？
 因為在按下按鈕的同時，需要 create 的方法，這時在 create 方法新增一個 debugger，再到 rails 的環境中打上 `params` 會出現一堆資料，有 token、candidate 的 Hash 等等，我們需要的資料，也就是表單資料，就在這個 candidate 的 Hash 裡 ( params[:candidate] )
 ```js
 class CandidatesController < ApplicationController
@@ -126,7 +144,7 @@ class CandidatesController < ApplicationController
 end
 ```
 
-但是 ruby 內建有一個保護機制，只打這些還是會報錯，為了不讓他人隨意丟資料進去，所以在提交的同時，除了需要 token 之外，還需要確認資料的種類
+但是 ruby 內建有一個保護機制，只打這些還是會報錯，為了不讓他人隨意丟資料進去，所以在提交的同時，除了需要 token 之外，還需要確認資料的種類：可參考 [ API ](<https://api.rubyonrails.org/classes/ActionController/Parameters.html> "API")
 
 ```js
 class CandidatesController < ApplicationController
@@ -153,15 +171,43 @@ class CandidatesController < ApplicationController
 
   private //因為外部不需取用，所以使用私有方法
   def candidate_params
-    params.require(:candidate).permit(:name, :party, :age, :politics) //資料只允許這四種
+    params.require(:candidate).permit(:name, :party, :age, :politics) //資料只允許這四種傳過來
   end
 end
 ```
 
 `render :new` 重新渲染 new 頁面（也就是表單頁面），但是所 key 的資料一樣會保留，因為 create 裡的 @candidate 是帶有資料的
 
+#### 確認已加入候選人名單
+在專案底下打入 `rails c` 接著打 `Candidate.all`，這樣剛剛建立的資料就存進來啦
+
+## 驗證
+在 Candidate Model 新增驗證欄位，讓姓名必須是必填
+```js
+class Candidate < ApplicationRecord
+  validates :name, presence: true
+end
+```
+
+## 命名方法
+在 index 裡新增一個實體變數 @candidates，會加 s 的原因是因為篩選出來的資料是全部的候選人，這也**符合 rails 的慣例**，這麼做是要把全部候選人渲染在 index 這個頁面
+```js
+class CandidatesController < ApplicationController
+  def index
+    @candidates = Candidate.all
+  end
+end
+```
+
 ## link_to
-這個方法像是 html 裡的 a 標籤的超連結，因為裡面要塞很多資料的話，使用 a 標籤會讓程式碼看起來很亂
+這個方法像是 html 裡的 a 標籤的超連結，因為裡面要塞很多資料的話，使用 a 標籤會讓程式碼看起來很亂，例如：
+```js
+<td>
+  <a href="/candidates/<%= candidate.id%>"><%= candidate.name%></a>
+</td>
+```
+
+使用 link_to 方法後簡潔許多
 ```js
 <%= link_to '想要顯示的名字',  '對照 routes 裡面的 path' %>
 
@@ -180,7 +226,7 @@ end
 ## find_by
 用於在資料庫中查找滿足指定條件的第一條記錄
 
-`:id` 是指查詢的條件，而 `params[:id]` 是從 HTTP 請求中獲取的參數，通常是 URL 中的路由參數，然後再把這項資料存進實體變數中
+`id` 是指查詢的條件，而 `params[:id]` 是從 HTTP 請求中獲取的參數，通常是 URL 中的路由參數，然後再把這項資料存進實體變數中，可以建立每個候選人的頁面
 ```js
 @candidate = Candidate.find_by(id: params[:id])
 ```
@@ -233,7 +279,7 @@ Rails.application.routes.draw do
       post :vote
       get :abc
     end
-    //candidates/:id/vote
+    //candidates/:id/abc
 
     collection do
       post :vote
@@ -245,7 +291,7 @@ end
 
 ## schema
 
-schema.rb 文件是通過運行 `rails db:migrate` 命令生成的。這個命令會執行項目中 db/migrate 目錄下的檔案，並根據遷移文件中的定義更新數據庫的結構。schema.rb 文件的內容會反映當前數據庫的實際結構
+schema.rb 文件是通過運行 `rails db:migrate` 命令生成的。這個命令會執行項目中 db/migrate 目錄下的檔案，並根據 migrate 文件中的定義更新數據庫的結構。schema.rb 文件的內容會反映當前數據庫的實際結構，**也就是 model 對應的欄位跟表格**
 
 ```jsx title="db/schema.rb"
 ActiveRecord::Schema.define(version: 2023_11_24_143043) do
@@ -266,7 +312,9 @@ end
 ## 複數化
 Rails 使用一種稱為複數化（pluralization）的方式，將 Model 名稱轉換成數據庫表名稱。`VoteLog` 是 Model 的名稱，而對應的數據庫表名稱被 Rails 複數化為 `vote_logs`，這是 Rails 有助於維持程式碼的一致性和可讀性
 
-以下兩行範例呈現相同模式：
+request.remote_ip：可以找到當下投票的 ip 位置
+
+以下兩行範例呈現相同模式，只是站在不同的角度建立，一個是站在 VoteLog 角度，一個是在候選人 @candidate 角度：
 ```js
 VoteLog.create(candidate: @candidate,ip_address: request.remote_ip)
 @candidate.vote_logs.create(ip_address: request.remote_ip)
@@ -291,18 +339,25 @@ Processing by CandidatesController#index as HTML
   Rendered layout layouts/application.html.erb (Duration: 23.3ms | Allocations: 6235)
 Completed 200 OK in 25ms (Views: 23.3ms | ActiveRecord: 0.9ms | Allocations: 6629)
 ```
+:::danger note
+counter_cache 是 Rails **ActiveRecord** 提供的一項功能，用於在關聯關係中快速獲取關聯記錄的數量，而不需要執行額外的查詢。這在處理關聯 **記錄數量頻繁變動** 的情況下，可以有效提高性能
+:::
 
 首先在 Candidate Model 開一個 integer 型態的欄位，名稱叫做 vote_logs_count，我們使用 Migration 來做這件事：
 在專案終端機打上 `rails g migration add_counter_to_candidate vote_logs_count:integer`
 
 這時候 migration 的內容長這樣：
 ```js
+// frozen_string_literal: true
 class AddCounterToCandidate < ActiveRecord::Migration[6.1]
   def change
     add_column :candidates, :vote_logs_count, :integer
   end
 end
 ```
+:::note
+在程式碼第一行加入 frozen_string_literal: true 凍結此檔，可以稍微加快往後的讀取速度
+:::
 
 執行： `rails db:migrate`
 
@@ -313,6 +368,11 @@ class VoteLog < ApplicationRecord
   belongs_to :candidate, counter_cache:true
 end
 ```
+:::note
+如果想指定其他欄位儲存 counter cache 請改寫為
+
+counter_cache: ‘COLUMN_NAME’
+:::
 
 最後在 index 檔案，顯示投票數的地方使用 size 方法：
 
@@ -352,9 +412,15 @@ namespace :db do
   end
 end
 ```
+* `:environment` 這裡是指引入 rails 環境
+
+* `reset_counters` 用法可參考 [ API ](<https://apidock.com/rails/ActiveRecord/CounterCache/ClassMethods/reset_counters> "API")
+
+這時可以確認有無寫入資料裡，在專案終端機底下打 `rails -T`，如果有 `rails db:reset_counter`，就可以使用這個方法啦
+ 
 在專案終端底下輸入： `rails db:reset_counter` 這樣就可以同步了
 
-## 方法重複如何整理
+## 方法重複如何整理？
 
 像這樣程式碼 有過多 `@candidate = Candidate.find_by(id: params[:id])` 這段程式碼，我們可以用方法包起來
 ```js
@@ -461,7 +527,7 @@ class CandidatesController < ApplicationController
 end
 ```
 
-## 表單重複如何整理
+## 表單重複如何整理？
 當兩個頁面同時出現以下程式碼，可以新增一個有下底線的檔案，例如：_form.html.erb，把重複的程式碼丟進去
 ```js
 <% if @candidate.errors.any? %>
