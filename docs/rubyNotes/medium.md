@@ -26,6 +26,11 @@ brew install postgresql
 
 3. **無 webpack.yml 的檔案**
 
+先確保 gemfile 裡存在：
+```js
+gem 'webpacker', '~> 5.0'
+```
+
 使用 rails new 命令時，如果指定 `-d postgresql` 選項，Rails 會生成一個使用 PostgreSQL 作為數據庫的新應用程序，但不會自動生成 Webpacker 的配置文件 webpacker.yml，所以要手動新增：
 ```js
 rails webpacker:install
