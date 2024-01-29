@@ -22,7 +22,7 @@ class TweetPresenter
   end
 end
 ```
-* initialize 方法是期望接收一個 tweet 對象做為參數
+* initialize 方法是期望接收一個 tweet 對象做為參數，並將賦值給一個實例變數 @tweet
 * `delegate :user, :body, to: :@tweet` : user 和 body 方法都會委託給 @tweet 對象，這樣代表在 TweetPresenter 調用 user 方法會等於 `@tweet.user`
 
 
