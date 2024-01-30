@@ -128,3 +128,134 @@ end
 :::danger note
 `tweet_presenter.tweet` 實際上是 @tweet 為 Tweet 對象，因為 Tweet 是 ActiveRecord 模型，ActiveRecord 模型預設擁有一個主鍵 id， `dom_id(tweet_presenter.tweet)` 將返回這個推文對象的唯一 id，所以才可以使 dom_id(@tweet) 對應上 dom_id(tweet_presenter.tweet)，進而更新按讚功能
 :::
+
+## 建立 likes_count 欄位
+在 tweets 表中添加一個新的列 likes_count，用於儲存該推文（tweet）獲取的點讚（likes）數量。這樣的用意通常用於提高查詢效率，以避免每次都實時計算點贊的數量
+```js
+rails g migration add_likes_count_to_tweets likes_count:integer
+```
+
+新增 migation 的方法
+```js
+class AddLikesCountToTweets < ActiveRecord::Migration[6.1]
+  def up
+    add_column :tweets, :likes_count, :integer, null: false, default: 0
+
+    Tweet.find_each do |tweet| 
+      tweet.update! likes_count: tweet.likes.size
+    end
+  end
+
+  def down
+    remove_column :tweets, :likes_count
+  end
+end
+```
+
+* up 方法： 建立一個欄位 likes_count 為整數，不能為空值且預設值為 0，接著，通過 `Tweet.find_each` 迭代每篇推文，並使用 update! 方法將 likes_count 設置為每則推文的實際獲取的按讚數量
+
+* down 方法：用於還原 migration 的 up 方法，如果你需要刪除 likes_count 欄位，則可以使用 `rails db:rollback` 就會調用 down 方法刪除欄位
+
+```js
+rails db:migrate
+```
+在要顯示按讚數量的 view 中更新：
+```js
+<%= tweet_presenter.likes_count %>
+```
+
+如果使用 Presenter 方法記得要在頁面加入 `:likes_count`，這樣才可以在 TweetPresenter 的實例上調用 likes_count
+```js
+delegate :user, :body, :likes, :likes_count, to: :@tweet
+```
+
+
+## n+1 問題
+
+依據上面的程式碼後台會呈現像這樣，一筆一筆的查詢，這樣會造成速度變慢，而影響使用者體驗
+```js
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (2.6ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 28], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.4ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 27], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (2.0ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 26], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (27.4ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 25], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.9ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 24], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (2.5ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 23], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (27.7ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 22], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.6ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 21], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.7ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 20], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (27.3ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 19], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.5ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 18], ["LIMIT", 1]]
+14:15:45 web.1     |   ↳ app/views/tweets/_tweet.html.erb:34
+14:15:45 web.1     |   Like Load (1.4ms)  SELECT "likes".* FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 17], 
+```
+
+頁面指出在 _tweet.html.erb:34 行會造成一直查詢的問題，接著我們來更改 _tweet.html.erb 頁面。在當前使用者有無按讚這篇推文的讚，有的話呈現實心的愛心，沒有的話呈現空心的愛心
+```js
+<% if current_user.liked_tweets.include?(tweet_presenter.tweet) %>
+  <%= link_to tweet_like_path(tweet_presenter.tweet, current_user.likes.find_by(tweet: tweet_presenter.tweet)), type:'button', data:{ 'bs-toggle' => 'tooltip' , 'bs-title'=>'Likes','bs-placement'=>'bottom', 'turbo-method' => 'delete' }, class:'text-decoration-none likes d-inline-flex
+    align-items-center text-pink' do %>
+    <span class="bg-icon-red rounded-circle p-2  d-inline-flex">
+      <i class="fa-solid fa-heart"></i>
+    </span>
+    <%= tweet_presenter.likes_count %>
+  <% end %>
+<% else %>
+  <%= link_to tweet_likes_path(tweet_presenter.tweet), type: 'button', data:{ 'bs-toggle': 'tooltip', 'bs-title': 'Likes','bs-placement': 'bottom', 'turbo-method': 'post' }, class:'text-decoration-none likes d-inline-flex align-items-center' do %>
+    <span class="bg-icon-red rounded-circle p-2  d-inline-flex">
+        <i class="fa-regular fa-heart"></i>
+    </span>
+    <%= tweet_presenter.likes_count %>
+  <% end %>
+<% end %>
+```
+
+* `current_user.liked_tweets`: 可以在當前使用者抓取按讚的推文，原因是因為在 user model 有建立關聯 
+  ```
+  class User < ApplicationRecord
+    has_many :liked_tweets, through: :likes, source: :tweet
+  end
+  ```
+
+* 因為使用 Presenter 方法所以要在 Presenter 頁面新增 `@current_user = current_user`，使得在 Presenter 的實例中可以訪問 current_user
+```js
+//tweet_presenter
+def initialize(tweet:, current_user:)
+  @tweet = tweet
+  @current_user = current_user
+end
+```
+
+並且在 turbo-stream 建立的 TweetPresenter 的實例中也把 current_user 傳遞進去，確保在 TweetPresenter 中可以使用它
+```js
+//create.turbo_stream.erb
+<%= turbo_stream.replace dom_id(@tweet) do %>
+  <%= render partial: "tweets/tweet", locals: { tweet_presenter: TweetPresenter.new(tweet: @tweet, current_user: current_user) } %>
+<% end %>
+```
+
+這麼一來，更新過後來查看後台數據，整個頁面跑快了不少唷
+```js
+User Load (0.9ms)  SELECT "users".* FROM "users" WHERE "users"."id" = $1 ORDER BY "users"."id" ASC LIMIT $2  [["id", 1], ["LIMIT", 1]]
+15:59:20 web.1     |   ↳ app/controllers/application_controller.rb:2:in `block in <class:ApplicationController>'
+15:59:20 web.1     |   Tweet Load (0.9ms)  SELECT "tweets".* FROM "tweets" WHERE "tweets"."id" = $1 LIMIT $2  [["id", 295], ["LIMIT", 1]]
+15:59:20 web.1     |   ↳ app/controllers/likes_controller.rb:19:in `tweet_id'
+15:59:20 web.1     |   TRANSACTION (1.1ms)  BEGIN
+15:59:20 web.1     |   ↳ app/controllers/likes_controller.rb:4:in `create'
+15:59:20 web.1     |   Like Exists? (1.2ms)  SELECT 1 AS one FROM "likes" WHERE "likes"."user_id" = $1 AND "likes"."tweet_id" = $2 LIMIT $3  [["user_id", 1], ["tweet_id", 295], ["LIMIT", 1]]
+15:59:20 web.1     |   ↳ app/controllers/likes_controller.rb:4:in `create'
+15:59:20 web.1     |   Like Create (1.4ms)  INSERT INTO "likes" ("tweet_id", "user_id", "created_at", "updated_at") VALUES ($1, $2, $3, $4) RETURNING "id"  [["tweet_id", 295], ["user_id", 1], ["created_at", "2024-01-30 07:59:20.125429"], ["updated_at", "2024-01-30 07:59:20.125429"]]
+15:59:20 web.1     |   ↳ app/controllers/likes_controller.rb:4:in `create'
+15:59:20 web.1     |   Tweet Update All (2.4ms)  UPDATE "tweets" SET "likes_count" = COALESCE("likes_count", 0) + $1 WHERE "tweets"."id" = $2  [["likes_count", 1], ["id", 295]]
+```
+
