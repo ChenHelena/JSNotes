@@ -74,7 +74,7 @@ end
 
 ```js
 resources :message_threads, only: :index, path: '/messages' 
-resources :messages, only: :create 
+resources :messages, only: [:create, :index]
 ```
 
 ### 建立 controller
@@ -82,6 +82,13 @@ resources :messages, only: :create
 ```js
 class MessagesController < ApplicationController
   before_action :authenticate_user!
+
+  def index
+    @message_thread = MessageThread.find(params[:message_thread_id])
+    @messages = @message_thread.messages
+    @user = User.find(params[:other_user_id])
+    //建立 other_user_id 確保 view 收的到且不會報錯
+  end
 
   def create
     user = User.find(params[:user_id])
@@ -115,9 +122,11 @@ class MessageThreadsController < ApplicationController
 
   def index
     message_thread_ids = MessageThreadsUser.where(user: current_user).pluck(:message_thread_id)
-    @message_threads = MessageThread.includes(:users, :messages).where(id: message_thread_ids)
-    if params[:user_id].present?
-      @new_message_thread_user = User.find(params[:user_id])
+    @message_threads = MessageThread.includes(:users, :messages).where(id: message_thread_ids).order("messages.created_at desc").to_a
+
+    if params[:user_id].present? && !@message_threads.map(&:users).flatten.map(&:id).flatten.include?(params[:user_id].to_i)
+      @user = User.find(params[:user_id])
+      @message_threads.unshift(MessageThread.new)
     end
   end
 end 
@@ -127,8 +136,12 @@ end
 
 ```js
 <% @message_threads.each do |message_thread| %>
-  <% other_user = message_thread.users.where.not(id: current_user.id).first %>
-  <div class="py-3 px-2 d-flex">
+  <% if message_thread.new_record? %>
+      <% other_user = @user %>
+  <% else %>
+    <% other_user = message_thread.users.where.not(id: current_user.id).first %>
+  <% end %>
+  <div class="py-3 px-2 d-flex <%= 'active' if message_thread.new_record? %>">
     <div class="flex-shrink-0">
       <% if other_user.avatar.attached? %>
         <%= avatar(other_user, size: { x: 48, y: 48 }) %>
